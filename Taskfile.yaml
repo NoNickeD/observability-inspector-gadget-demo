@@ -1,0 +1,74 @@
+version: "3"
+
+tasks:
+  create-local-cluster:
+    desc: "Creates a local Kubernetes cluster using KinD for development purposes."
+    cmds:
+      - echo "🚀 Initiating creation of a local Kubernetes cluster..."
+      - kind create cluster --config kind-config.yaml --name srekubecraft
+      - kind get clusters
+    silent: true
+
+  setup-kube-context:
+    desc: "Configures the Kubernetes context to interact with the newly created local cluster."
+    cmds:
+      - echo "🔧 Configuring Kubernetes context for local cluster usage..."
+      - kubectl cluster-info --context kind-srekubecraft
+    silent: true
+
+  delete-local-cluster:
+    desc: "Deletes the local Kubernetes cluster to clean up resources."
+    deps:
+      - setup-kube-context
+    cmds:
+      - echo "🗑️ Proceeding to delete the local Kubernetes cluster..."
+      - kind delete cluster -n srekubecraft
+    silent: true
+
+  install-metric-server:
+    desc: "Installs the Kubernetes Metrics Server to enable resource usage monitoring."
+    deps:
+      - setup-kube-context
+    cmds:
+      - echo "📊 Deploying the Kubernetes Metrics Server..."
+      - helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+      - helm repo update
+      - helm install metrics-server metrics-server/metrics-server --namespace kube-system --set args[0]="--kubelet-insecure-tls"
+    silent: true
+
+  install-demo-app:
+    desc: "Deploys a demo application to validate the cluster setup and functionality."
+    cmds:
+      - echo "🚀 Deploying demo application..."
+      - kubectl create namespace demo
+      - kubectl apply -k ./app/ --namespace demo
+    silent: true
+  
+  install-via-krew-gadget:
+    desc: "Installs a Krew gadget to extend the functionality of the Krew plugin manager."
+    cmds:
+      - echo "🚀 Installing Inspector Gadget..."
+      - kubectl krew install gadget
+      - kubectl gadget --help
+    silent: true
+
+  install-gadget-to-cluster:
+    desc: "Installs Inspector Gadget to the local cluster for debugging and troubleshooting purposes."
+    deps:
+      - setup-kube-context
+      - install-via-krew-gadget
+    cmds:
+      - echo "🚀 Installing Inspector Gadget to the local cluster..."
+      - kubectl gadget deploy
+    silent: true
+
+  full-deploy-local:
+    desc: "Executes a complete deployment of all components in the local cluster, ideal for testing or demonstration."
+    cmds:
+      - echo "🚀 Starting full deployment of all necessary components in the local cluster..."
+      - task: create-local-cluster
+      - task: setup-kube-context
+      - task: install-metric-server
+      - task: install-demo-app
+      - task: install-gadget-to-cluster
+    silent: true
